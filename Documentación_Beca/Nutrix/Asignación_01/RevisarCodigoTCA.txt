@@ -1,0 +1,583 @@
+  const getHeaders = () => {
+    const headers = nutrients.map((nutrient) => {
+      if (nutrient.id === 3 || nutrient.id === 5 || nutrient.id === 6 || nutrient.id === 8 || nutrient.id === 12 || nutrient.id === 15 || nutrient.id === 16) {
+        return {
+          key: nutrient.abbreviation,
+          header: nutrient.abbreviation + " (" + nutrient.defaultUnit.abbreviation + ")",
+          name: nutrient.name,
+          checked: true
+        }
+      } else {
+        return {
+          key: nutrient.abbreviation,
+          header: nutrient.abbreviation + " (" + nutrient.defaultUnit.abbreviation + ")",
+          name: nutrient.name,
+          checked: false
+        }
+      }
+    })
+    return (headers)
+  }
+
+  // original configuration - for reset
+  const [headersConfiguration, setHeadersConfiguration] = useState<ConfigHeadersInterface[] | []>((getHeaders()).filter((header) => header.key !== 'title'))
+
+  // data config in modal
+  const [configuratedHeaders, setConfigHeaders] = useState<ConfigHeadersInterface[] | []>(headersConfiguration)
+
+  const [showConfiguratedHeaders, setShowConfigHeaders] = useState<ConfigHeadersInterface[] | []>(headersConfiguration)
+
+  const titleHeader = [{
+    key: 'title',
+    header: t('sidebar.food'),
+    checked: true
+  }]
+
+  const allHeaders = titleHeader.concat(showConfiguratedHeaders.filter((element) => element.checked))
+
+  useEffect(async () => {
+    setPageSize(initialPageSize)
+
+    if (initialPageSize !== -10) {
+      if (getSavedConfiguratedHeaders('headers-configuration-tca') !== null) {
+        if (!arraysAreEqual(headersConfiguration, getSavedConfiguratedHeaders('headers-configuration-tca'))) {
+          setConfigHeaders(getSavedConfiguratedHeaders('headers-configuration-tca'))
+          setShowConfigHeaders(getSavedConfiguratedHeaders('headers-configuration-tca'))
+        }
+      } else {
+        saveConfigurationHeadersInBrowser('headers-configuration-tca', headersConfiguration)
+      }
+      await getListFood()
+    }
+  }, [size.height !== 0])
+
+  const inputRef = useRef(null)
+
+  const validateFetchParams = (sourcesChecked: any,
+    languageChecked: any,
+    baseChecked: any,
+    groupChecked: any,
+    filtersNutrients: any): boolean => {
+    const VALIDATE_SOURCES = sourcesChecked.length > 0 ? sourcesChecked : null
+    const VALIDATE_LANGUAGE = languageChecked !== undefined ? languageChecked.code_iso_639 : null
+    const VALIDATE_BASE = baseChecked !== undefined ? baseChecked.name : null
+    const VALIDATE_FOOD_GROUPS = groupChecked.length > 0 ? groupChecked : null
+    const VALIDATE_NUTRIENTS_CONFIGURATIONS = null
+    const VALIDATE_NUTRIENTS_FILTERS = filtersNutrients.length > 0 ? filtersNutrients : null
+    const VALIDATE_SEARCH = searchString
+
+    return VALIDATE_SOURCES !== null ||
+      VALIDATE_LANGUAGE !== null ||
+      VALIDATE_BASE !== null ||
+      VALIDATE_FOOD_GROUPS !== null ||
+      VALIDATE_NUTRIENTS_CONFIGURATIONS !== null ||
+      VALIDATE_NUTRIENTS_FILTERS !== null ||
+      VALIDATE_SEARCH !== ''
+  }
+
+  const getListFood = async (
+    limit: number = initialPageSize,
+    page: number = 1,
+    field: string = 'id',
+    order: string = 'desc',
+    searchString: string = '',
+    filtersNutrients: any = []
+  ) => {
+    const groupChecked = groups.filter((element) => element.checked).map((element) => element.id)
+    const sourcesChecked = sources.filter((element) => element.checked).map((element) => element.id)
+    const languageChecked = languages.find((element) => element.checked)
+    const baseChecked = countability.find((element) => element.checked)
+
+    const VALIDATE_DATA = validateFetchParams(sourcesChecked, languageChecked, baseChecked, groupChecked, filtersNutrients)
+
+    if (VALIDATE_DATA) {
+      const response = await axios.get(route('food.search'), {
+        params: {
+          order: `${field},${order}`,
+          filters: {
+            // @ts-expect-error
+            user_id: inertiaProps.user.id,
+            sources: sourcesChecked.length > 0 ? sourcesChecked : null,
+            language: languageChecked !== undefined ? languageChecked.code_iso_639 : null,
+            base: baseChecked !== undefined ? baseChecked.name : null,
+            food_groups: groupChecked.length > 0 ? groupChecked : null,
+            nutrients_configurations: null,
+            nutrients_filters: filtersNutrients.length > 0 ? filtersNutrients : null,
+            search: searchString
+          },
+          limit,
+          page
+        }
+      })
+      setData(response.data.data)
+      if (response.data.data.length >= 0) {
+        setIsLoading(false)
+        setTotalItems(response.data.meta.total)
+        setLoadingMoreItems(false)
+      }
+    }
+  }
+
+  const showSavedSavedConfiguration = () => {
+    if (getSavedConfiguratedHeaders('tca-config') !== null) {
+      const getConfigSavedBody = getSavedConfiguratedHeaders('tca-config')
+      setNutrients(getConfigSavedBody.config_nutrients)
+      setCountability(getConfigSavedBody.config_count)
+      setGroups(getConfigSavedBody.config_group_food)
+      setLanguages(getConfigSavedBody.config_languages)
+      setSources(getConfigSavedBody.config_sources)
+    }
+  }
+
+  const savePropertiesToBrowser = () => {
+    const configurationToBrowser = {
+      config_group_food: groups,
+      config_nutrients: nutrients,
+      config_sources: sources,
+      config_languages: languages,
+      config_count: countability
+    }
+
+    saveConfigurationHeadersInBrowser('tca-config', configurationToBrowser)
+  }
+
+  useEffect(async () => {
+    const newValuesGroupDefault = groups.map(e => ({ ...e, checked: true }))
+    setGroups(newValuesGroupDefault)
+    const newValuesNutrientsDefault = nutrients.map(e => {
+      if (e.id === 3 || e.id === 5 || e.id === 6 || e.id === 8 || e.id === 12 || e.id === 15 || e.id === 16) {
+        return {
+          ...e,
+          checked: true
+        }
+      } else {
+        return {
+          ...e,
+          checked: false
+        }
+      }
+    })
+    setNutrients(newValuesNutrientsDefault)
+    const newValuesSourcesDefault = sources.map(e => {
+      if (e.name === 'BEDCA') {
+        return {
+          ...e,
+          checked: true
+        }
+      } else {
+        return {
+          ...e,
+          checked: false
+        }
+      }
+    })
+    setSources(newValuesSourcesDefault)
+    const newValuesLanguagesDefault = languages.map(e => {
+      if (e.name === 'Español') {
+        return {
+          ...e,
+          checked: true
+        }
+      } else {
+        return {
+          ...e,
+          checked: false
+        }
+      }
+    })
+    setLanguages(newValuesLanguagesDefault)
+    const newValuesCountDefault = countability.map(e => {
+      if (e.name === 100) {
+        return {
+          ...e,
+          checked: true
+        }
+      } else {
+        return {
+          ...e,
+          checked: false
+        }
+      }
+    })
+    setCountability(newValuesCountDefault)
+
+    showSavedSavedConfiguration()
+    setPageSize(initialPageSize)
+
+    if (data.length === 0) {
+      await getListFood(initialPageSize, 1, 'id', 'desc', '', [])
+    }
+  }, [
+    size.height !== 0,
+    rigthPanelExpanded,
+    sidebarExpanded
+  ])
+
+  useEffect(() => {
+    const scrollableElements = document.querySelectorAll('.cds--data-table-content')
+
+    if (scrollableElements.length > 0) {
+      scrollableElements.forEach((table) => {
+        handleScrollLock(table, isOpen)
+      })
+    }
+  }, [isOpen])
+
+  const updateConfigurationCheck = (index?: any, titleOfHandle?: string) => {
+    switch (titleOfHandle) {
+      case 'filter-type':
+        handleCheckOption(index, typeCheckbox, false, setTypeCheckbox)
+        break
+      case 'filter-nutrient':
+        const name = getNutrientsByTypeSelected().name
+        if (name === 'Macronutrientes') {
+          handleCheckOption(index, macroNutrients, false, setMacroNutrients)
+        } else if (name === 'Vitaminas') {
+          handleCheckOption(index, vitamins, false, setVitamins)
+        } else {
+          handleCheckOption(index, minerals, false, setMinerals)
+        }
+        break
+      case 'filter-operator':
+        handleCheckOption(index, operatorCheckbox, false, setOperatorCheckbox)
+        break
+      case 'configuration-sources':
+        handleCheckOption(index, sources, true, setSources)
+        break
+      case 'configuration-languages':
+        handleCheckOption(index, languages, false, setLanguages)
+        break
+      case 'configuration-counter':
+        handleCheckOption(index, countability, false, setCountability)
+        break
+      case 'configuration-group':
+        handleCheckOption(index, groups, true, setGroups)
+        break
+      case 'configuration-nutrient':
+        updateConfigurationCheckbox(index)
+        break
+      default:
+    }
+  }
+
+  const callBackModal = () => {
+    setIsOpen(!isOpen)
+  }
+
+  const updateConfigurationCheckbox = (index: any) => {
+    const newConfig = configuratedHeaders.filter((header) => header.key !== 'title').map((item, indexConfig) => {
+      if (indexConfig === index) {
+        return {
+          ...item,
+          checked: !item.checked
+        }
+      } else {
+        return {
+          ...item
+        }
+      }
+    })
+
+    setConfigHeaders(newConfig)
+  }
+
+  const setChildWidthContentIfRigthPanelIsOpen = () => {
+    if (sidebarExpanded && !rigthPanelExpanded) {
+      return 'pageContentListSmall containerSmall'
+    } else if (sidebarExpanded && rigthPanelExpanded) {
+      return 'pageContentListSmall containerSmallWithRigthPanel'
+    } else if (!sidebarExpanded && rigthPanelExpanded) {
+      return 'pageContentListLarge containerLargeWithRigthPanel'
+    } else {
+      return 'pageContentListLarge containerLarge'
+    }
+  }
+
+  const getNutrientsByTypeSelected = () => {
+    const itemSelected = typeCheckbox.find((element) => element.checked)
+    if (itemSelected?.name === 'Macronutrientes') {
+      return {
+        name: 'Macronutrientes',
+        data: macroNutrients
+      }
+    } else if (itemSelected?.name === 'Vitaminas') {
+      return {
+        name: 'Vitaminas',
+        data: vitamins
+      }
+    } else {
+      return {
+        name: 'Minerales',
+        data: minerals
+      }
+    }
+  }
+
+  const handleSearchBar = () => {
+    setOpenSearchBar(true)
+  }
+
+  const deleteChipFilter = async (id: number, index: number) => {
+    const newData = filtersChip.filter((el: any) => el.id !== id)
+
+    const newToBack = filtersToBack.filter((element) => {
+      const indexOf = filtersToBack.indexOf(element)
+      if (indexOf !== index) {
+        return filtersToBack
+      }
+    })
+
+    setFiltersToBack(newToBack)
+    setFiltersChip(newData)
+    setData([])
+    setLoadingMoreItems(true)
+    await getListFood(pageSize, page, sortBy, orderData, searchString, newToBack)
+  }
+
+  const addFilterToSendBackend = (filterItem: FilterItem) => {
+    const newItems = filtersToBack
+
+    newItems.push([filterItem.nutrientId, filterItem.operator, filterItem.total])
+
+    setFiltersToBack(newItems)
+  }
+
+  const addFilter = async () => {
+    const itemSelected = typeCheckbox.find((element) => element.checked)
+    const operatorSelected = operatorCheckbox.find((element) => element.checked)
+
+    const filterItem: FilterItem = {
+      id: (+new Date() + Math.random()).toString(),
+      type: itemSelected?.name,
+      nutrientId: getNutrientsByTypeSelected().data.find((element) => element.checked)?.id,
+      nutrientName: getNutrientsByTypeSelected().data.find((element) => element.checked)?.name,
+      operator: operatorSelected?.name,
+      total: operatorSelected?.name === 'Desconocido' || operatorSelected?.name === 'Trazas'
+        ? ''
+        : Number(inputRef.current?.value)
+    }
+
+    const existItemFilter = filtersChip.find((element) => element.nutrientId === filterItem.nutrientId)
+
+    if (!existItemFilter) {
+      const newElementToFilterlist = [...filtersChip, filterItem]
+      setFiltersChip(newElementToFilterlist)
+      addFilterToSendBackend(filterItem)
+      await resetDataAndGetData()
+    }
+  }
+
+  const resetDataAndGetData = async () => {
+    setData([])
+    setLoadingMoreItems(true)
+    await getListFood(pageSize, page, sortBy, orderData, searchString, filtersToBack)
+  }
+
+  return <>
+    <ConfigurationModal
+      modalsControl={modalsControl}
+      configuratedHeaders={configuratedHeaders}
+      setShowConfigHeaders={setShowConfigHeaders}
+      savePropertiesToBrowser={savePropertiesToBrowser}
+      setModalsControl={setModalsControl}
+      resetDataAndGetData={resetDataAndGetData}
+      headersConfiguration={headersConfiguration}
+      setConfigHeaders={setConfigHeaders}
+      setHeadersConfiguration={setHeadersConfiguration}
+      groups={groups}
+      setGroups={setGroups}
+      nutrients={nutrients}
+      setNutrients={setNutrients}
+      sources={sources}
+      setSources={setSources}
+      languages={languages}
+      setLanguages={setLanguages}
+      countability={countability}
+      setCountability={setCountability}
+      updateConfigurationCheck={updateConfigurationCheck}
+    />
+    <FoodComparisonModal openModal={isOpen} food={foodInfoModal} foodList={data} handleCloseModal={callBackModal} />
+    <div style={{ display: 'flex' }}
+
+    >
+      <UIShell
+        currentPage={'TCA'}
+        sidebarExpanded={sidebarExpanded}
+        changeSideState={() => setSideBarExpanded(!sidebarExpanded)}
+        rigthPanelExpanded={rigthPanelExpanded}
+        renderContentRigthPanel={() => {
+          return <FilterPanel
+            typeCheckbox={typeCheckbox}
+            updateConfigurationCheck={updateConfigurationCheck}
+            getNutrientsByTypeSelected={getNutrientsByTypeSelected}
+            operatorCheckbox={operatorCheckbox}
+            inputRef={inputRef}
+            filterInputValue={filterInputValue}
+            addFilter={addFilter}
+          />
+        }}
+      />
+      <div
+        onClick={tcaControllerPage}
+        className={setChildWidthContentIfRigthPanelIsOpen()}>
+        <TileModal isOpen={openModal} callBackClose={() => closeModal()} nextRoute={route('food-requests.change', foodSuggestionId)} />
+        <h3 className='titlePage'>{t('tca.title')}</h3>
+
+        {isLoading
+          ? <DataTableSkeleton columnCount={allHeaders.length} showHeader={false} headers={allHeaders} zebra />
+          : <>
+
+            <DataTable
+              className="tableData"
+              useStaticWidth={false}
+              rows={getFoods()}
+              headers={allHeaders}
+              size="sm"
+              useZebraStyles={true}
+              overflowMenuOnHover={false}
+            >
+              {({ rows, headers, getTableProps, getHeaderProps, getRowProps }: any) => (
+                <TableContainer className="table-content" ref={ref}>
+                  <div className='toolbar-tca'>
+                    <div id="chips-filter-list" style={{
+                      width: openSearchBar ? '0px' : '100%',
+                      overflowX: 'auto',
+                      overflowY: 'hidden',
+                      height: '32px',
+                    }}>
+                      <div className='chips-filter-list-content'>
+                        {filtersChip.map((element, index) =>
+                          <div key={element.id}>
+                            <div className="chip-filter">
+                              <div className='chip-filter-text'>{element.nutrientName} {element.operator} {element.total}</div>
+                              <img src={closeIcon}
+                                onClick={() => {
+                                  deleteChipFilter(element.id, index)
+                                }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div id='toolbar-settings' style={{
+                      width: openSearchBar ? '100%' : '100px'
+                    }}>
+                      <TableToolbar
+                        size='sm'
+                      >
+                        <TableToolbarSearch
+                          onChange={(event: any) => handleSearch(event)}
+                          onKeyDown={handleKeyDown}
+                          onClick={handleSearchBar}
+                        />
+                        <TableToolbarMenu
+                          onClick={() => {
+                            setConfigHeaders(showConfiguratedHeaders)
+                            setModalsControl({
+                              ...modalsControl,
+                              params: {},
+                              openConfigTableModal: true
+                            })
+                          }}
+                          iconDescription={t('button.settings')}
+                          className="table-toolbar-content"
+                        />
+                        <TableToolbarMenu
+                          renderIcon={SettingsAdjust}
+                          iconDescription={t('button.settings')}
+                          onClick={() => {
+                            setRigthPanelExpanded(!rigthPanelExpanded)
+                          }}
+                          className="table-toolbar-content"
+                        />
+                      </TableToolbar>
+                    </div>
+                  </div>
+                  <Table {...getTableProps()}>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header: any) => (
+                          <TableHeader
+                            key={header.key} {...getHeaderProps({ header })}>
+                            <div onClick={async () => {
+                              const newOrderData = orderData === 'desc' ? 'asc' : 'desc'
+                              setOrderData(newOrderData)
+                              setSortBy(header.key)
+                              setData([])
+                              setLoadingMoreItems(true)
+                              await getListFood(pageSize, page, header.key, newOrderData, searchString, filtersToBack)
+                            }}>
+                              {header.header}
+                            </div>
+                          </TableHeader>
+                        ))}
+                        <TableHeader>
+                        </TableHeader>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.slice((page - 1) * pageSize).slice(0, pageSize).map((row: { id: React.Key | null | undefined, cells: any[] }) => (
+                        rows.length == 0
+                          ? <TableRow key={row.id} {...getRowProps({ row })}>
+                            {t('no-data')}
+                          </TableRow>
+                          : <TableRow  key={row.id} {...getRowProps({ row })}>
+                            {row.cells.map((cell: any) => <>
+                              <TableCell
+                                onClick={() => { }}
+                                className="row-table"
+                                key={cell.id}>{cell.value}</TableCell>
+                            </>
+                            )
+                            }
+                            <TableCell className="cds--table-column-menu">
+                              <OverflowMenu onClick={(e: any) => setCursorPosition(getCursorPosition(e))} size="md" direction={getOverflowMenuDirection()} className="menu-button-dots" flipped>
+                                <OverflowMenuItem itemText={<OverflowMenuText icon={<View />} text={t('table-tca.menu.view_more')} />} onClick={() => handleComparisonModal(row.id)}></OverflowMenuItem>
+                                {/* <OverflowMenuItem itemText={<OverflowMenuText icon={<Warning />} text={t('table-tca.menu.notify_error')} />}></OverflowMenuItem> */}
+                                <OverflowMenuItem itemText={<OverflowMenuText icon={<Edit />} text={t('table-tca.menu.suggest_change')} />} onClick={() => {
+                                  localStorage.setItem('previousRoute', 'food-request.index')
+                                  setFoodSuggestionId(row.id)
+                                  setOpenModal(true)
+                                }}></OverflowMenuItem>
+                              </OverflowMenu>
+                            </TableCell>
+                          </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </DataTable>
+            <NoData
+              data={data}
+              className={'no-data-center'}
+              loading={loadingMoreItems}
+              message={'table.no-data'}
+            />
+            <PlaceholderData message={t('table.loading')} loadingMoreContent={loadingMoreItems} />
+            <Pagination
+              className="pagination-container"
+              backwardText={t('pagination.prev-page')}
+              forwardText={t('pagination.next-page')}
+              itemsPerPageText={t('pagination.item-page')}
+              onChange={changePage}
+              itemRangeText={function itemRangeText(min, max, total) {
+                return ''.concat(min, '\u2013').concat(max, t('pagination.item.of')).concat(total, t('pagination.item.total'))
+              }}
+              page={page}
+              pageSize={pageSize}
+              pageSizes={[initialPageSize, 50, 100, 150]}
+              pageRangeText={function pageRangeText(current, total) {
+                return t('pagination.page.of').concat(total, ' ').concat(total === 1 ? t('pagination.page.total') : t('pagination.page.total(s)'))
+              }}
+              size="sm"
+              totalItems={totalItems}
+            />
+
+          </>}
+      </div>
+    </div>
+  </>
+}
+
+export default TCA
